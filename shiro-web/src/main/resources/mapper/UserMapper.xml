@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.spring.shiro.dto.UserMapper">
+  <resultMap id="BaseResultMap" type="com.spring.shiro.entity.User">
+    <id column="userId" jdbcType="TINYINT" property="userId" />
+    <result column="username" jdbcType="VARCHAR" property="username" />
+    <result column="password" jdbcType="VARCHAR" property="password" />
+  </resultMap>
+
+  <select id="getAllUsers" resultMap="BaseResultMap">
+    select userId,username,password from users
+  </select>
+  <select id="getPassWordByUserName" parameterType="java.lang.String"
+          resultMap="BaseResultMap">
+    select userId,username,password
+    from users
+    <if test="username != null">
+      where username = #{username,jdbcType=VARCHAR}
+    </if>
+  </select>
+  <insert id="addUsers" parameterType="com.spring.shiro.entity.User">
+    insert users(username,password)
+    values(
+      #{username,jdbcType=VARCHAR},
+      #{password,jdbcType=VARCHAR}
+    )
+  </insert>
+</mapper>

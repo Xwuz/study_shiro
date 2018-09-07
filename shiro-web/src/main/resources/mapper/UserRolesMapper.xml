@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.spring.shiro.dto.UserRolesMapper">
+  <resultMap id="BaseResultMap" type="com.spring.shiro.entity.UserRoles">
+    <id column="role_id" jdbcType="TINYINT" property="roleId" />
+    <result column="username" jdbcType="VARCHAR" property="username" />
+    <result column="role_name" jdbcType="VARCHAR" property="roleName" />
+  </resultMap>
+
+  <select id="getRoleByUserName" parameterType="java.lang.String"
+          resultType="java.lang.String">
+    select role_name
+    from user_roles
+    <if test="username != null">
+      where username = #{username,jdbcType=VARCHAR}
+    </if>
+  </select>
+
+</mapper>

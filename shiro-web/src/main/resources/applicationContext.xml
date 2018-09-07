@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xmlns:context="http://www.springframework.org/schema/context"
+	   xmlns:aop="http://www.springframework.org/schema/aop"
+	   xmlns:tx="http://www.springframework.org/schema/tx" xmlns:p="http://www.springframework.org/schema/p"
+	   xmlns:util="http://www.springframework.org/schema/util"
+	   xsi:schemaLocation="http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-4.3.xsd
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.2.xsd
+		http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.3.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.3.xsd http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd">
+
+
+	<context:component-scan base-package="com.spring.shiro">
+		<context:exclude-filter type="annotation"
+								expression="org.springframework.stereotype.Controller" />
+		<context:exclude-filter type="annotation"
+								expression="org.springframework.web.bind.annotation.ControllerAdvice" />
+	</context:component-scan>
+	<!-- Spring的配置文件，这里主要配置和业务逻辑有关的 -->
+	<!--=================== 数据源，事务控制，xxx ================-->
+	<context:property-placeholder location="classpath:dbconfig.properties"/>
+	<bean id="pooledDataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+		<property name="jdbcUrl" value="${jdbc.jdbcUrl}"></property>
+		<property name="driverClass" value="${jdbc.driverClass}"></property>
+		<property name="user" value="${jdbc.user}"></property>
+		<property name="password" value="${jdbc.password}"></property>
+	</bean>
+
+	<!--================== 配置和MyBatis的整合=============== -->
+	<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<!-- 指定mybatis全局配置文件的位置 -->
+		<property name="configLocation" value="classpath:mybatis-config.xml"></property>
+		<property name="dataSource" ref="pooledDataSource"></property>
+		<!-- 指定mybatis，mapper文件的位置 -->
+		<property name="mapperLocations" value="classpath:mapper/*.xml"></property>
+	</bean>
+
+	<!-- 配置扫描器，将mybatis接口的实现加入到ioc容器中 -->
+	<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+		<!--扫描所有dao接口的实现，加入到ioc容器中 -->
+		<property name="basePackage" value="com.spring.shiro.dto"></property>
+	</bean>
+
+	<!-- 配置一个可以执行批量的sqlSession -->
+	<bean id="sqlSession" class="org.mybatis.spring.SqlSessionTemplate">
+		<constructor-arg name="sqlSessionFactory" ref="sqlSessionFactory"></constructor-arg>
+		<constructor-arg name="executorType" value="BATCH"></constructor-arg>
+	</bean>
+
+	<!--=============================================  -->
+
+	<!-- ===============事务控制的配置 ================-->
+	<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<!--控制住数据源  -->
+		<property name="dataSource" ref="pooledDataSource"></property>
+	</bean>
+
+	<!--开启基于注解的事务，使用xml配置形式的事务（必要主要的都是使用配置式）  -->
+	<aop:config>
+		<!-- 切入点表达式 -->
+		<aop:pointcut expression="execution(* com.spring.shiro.service..*(..))" id="txPoint"/>
+		<!-- 配置事务增强 -->
+		<aop:advisor advice-ref="txAdvice" pointcut-ref="txPoint"/>
+	</aop:config>
+
+	<!--配置事务增强，事务如何切入  -->
+	<tx:advice id="txAdvice" transaction-manager="transactionManager">
+		<tx:attributes>
+			<!-- 所有方法都是事务方法 -->
+			<tx:method name="*"/>
+			<!--以get开始的所有方法  -->
+			<tx:method name="get*" read-only="true"/>
+		</tx:attributes>
+	</tx:advice>
+
+	<!-- Spring配置文件的核心点（数据源、与mybatis的整合，事务控制） -->
+
+
+
+
+
+
+	<!--	shiro配置	-->
+
+	<bean id="shiroFilter"
+		  class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">
+		<property name="securityManager" ref="securityManager"/>
+		<property name="loginUrl" value="login.html"/> <!--登录页-->
+		<property name="unauthorizedUrl" value="403.html"/>
+		<property name="filterChainDefinitions">
+			<value>
+				<!-- 不需要认证 -->
+				/login.html = anon
+				/subLogin = anon
+                <!-- 权限过滤器
+                /testRole = roles["admin"]
+                /testRole1 = roles["admin","user"]
+                /testPerms = perms["user:delete"]
+                /testPerms1 = perms["user:delete","user:select"]-->
+
+				<!-- 使用自定义filter -->
+				/testRole = roles["admin","admin1"]
+				/testRole1 = rolesOr["admin","admin1"]
+				<!-- 需要认证 -->
+				/* = authc
+			</value>
+		</property>
+		<property name="filters">
+			<util:map>
+				<entry key="rolesOr" value-ref="rolesOrFilter"/>
+			</util:map>
+		</property>
+	</bean>
+
+
+	<!-- 自定义的filter -->
+	<bean id="rolesOrFilter"
+		  class="com.spring.shiro.filter.RolesOrFilter"/>
+
+	<!-- 创建securityManager对象 -->
+	<bean id="securityManager"
+		  class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">
+		<property name="realm" ref="userRealm"/>
+		<property name="sessionManager" ref="sessionManager"/>
+		<property name="cacheManager" ref="cacheManager"/>
+		<property name="rememberMeManager" ref="rememberMeManager"/>
+	</bean>
+
+	<!-- 创建自定义realm -->
+	<bean id="userRealm" class="com.spring.shiro.realm.UserRealm">
+		<property name="credentialsMatcher" ref="credentialsMatcher"/>
+	</bean>
+
+	<bean id="credentialsMatcher"
+		  class="org.apache.shiro.authc.credential.HashedCredentialsMatcher">
+		<property name="hashAlgorithmName" value="md5"/>
+		<property name="hashIterations" value="1"/>
+	</bean>
+
+
+    <!--  配置sessiondao  -->
+    <bean id="sessionManager"
+          class="com.spring.shiro.session.CustomSessionManager">
+        <property name="sessionDAO" ref="sessionDao"/>
+    </bean>
+
+    <bean id="sessionDao" class="com.spring.shiro.session.RedisSessionDao"/>
+
+
+    <!-- ==============================================================-->
+    <!--               redis                -->
+    <bean id="jedisPool" class="redis.clients.jedis.JedisPool">
+        <constructor-arg ref="jedisPoolConfig" />
+        <constructor-arg value="127.0.0.1" />
+        <constructor-arg value="6379" />
+    </bean>
+
+    <bean id="jedisPoolConfig"
+          class="redis.clients.jedis.JedisPoolConfig">
+    </bean>
+
+
+	<!--  cache        -->
+	<bean id="cacheManager"
+		  class="com.spring.shiro.cache.RedisCacheManager"/>
+
+
+	<!--  记住登陆 -->
+	<bean id="rememberMeManager"
+		  class="org.apache.shiro.web.mgt.CookieRememberMeManager">
+		<property name="cookie" ref="simpleCookie"/>
+	</bean>
+
+	<bean id="simpleCookie"
+		  class="org.apache.shiro.web.servlet.SimpleCookie">
+		<constructor-arg value="rememberMe"/>
+		<property name="maxAge" value="20000000"/>
+	</bean>
+</beans>

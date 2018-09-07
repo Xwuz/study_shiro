@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.spring.shiro.dto.PermissionMapper">
+  <resultMap id="BaseResultMap" type="com.spring.shiro.entity.Permission">
+    <id column="permission_id" jdbcType="TINYINT" property="permissionId" />
+    <result column="role_name" jdbcType="VARCHAR" property="roleName" />
+    <result column="permission" jdbcType="VARCHAR" property="permission" />
+  </resultMap>
+
+  <select id="getPermissionByRoleName" parameterType="java.util.Set"
+          resultType="java.lang.String">
+    select permission
+    from roles_permissions
+    <if test="roleName != null and roleName.size() > 0">
+      where role_name in
+      <foreach item="item" index="index" collection="roleName" open="(" separator="," close=")">
+        #{item, jdbcType=VARCHAR}
+      </foreach>
+    </if>
+  </select>
+</mapper>
